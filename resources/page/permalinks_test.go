@@ -62,6 +62,21 @@ var testdataPermalinks = []struct {
 		p.title = "mytitle"
 		p.file = source.NewContentFileInfoFrom("/", "_index.md")
 	}, "/test-page/"},
+	// Unix seconds
+	{"/:unix", true, nil, "/1333681319"},
+	{"/:unixhex", true, nil, "/4f7e5ca7"},
+	{"/:unixhex", true, func (p *testPage) {  // changes with page date (one second earlier)
+		d, _ := time.Parse("2006-01-02 15:04:05", "2012-04-06 03:01:58")
+		p.date = d
+	}, "/4f7e5ca6"},
+	{"/:unixhashed", true, nil, "/f2ca396e"}, // sha256("1333681319\000") == 6fe619bd_f2ca396e_2e95192082..
+	{"/:unixhashed", true, func (p *testPage) { // changes chaotically with page date
+		d, _ := time.Parse("2006-01-02 15:04:05", "2012-04-06 03:01:58")
+		p.date = d
+	}, "/54179561"},
+	{"/:unixhashed", true, func (p *testPage) { // configurable pepper
+		p.params["datepepper"] = "A secret string!"
+	}, "/11f6f3ed"},
 	// Failures
 	{"/blog/:fred", false, nil, ""},
 	{"/:year//:title", false, nil, ""},

@@ -14,6 +14,8 @@
 package page
 
 import (
+	"encoding/binary"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -28,6 +30,7 @@ import (
 	"github.com/gohugoio/hugo/common/maps"
 	"github.com/gohugoio/hugo/helpers"
 	"github.com/gohugoio/hugo/resources/kinds"
+	"github.com/spf13/cast"
 )
 
 // PermalinkExpander holds permalink mappings per section.
@@ -86,6 +89,9 @@ func NewPermalinkExpander(urlize func(uri string) string, patterns map[string]ma
 		"weekday":               p.pageToPermalinkDate,
 		"weekdayname":           p.pageToPermalinkDate,
 		"yearday":               p.pageToPermalinkDate,
+		"unix":                  p.pageToPermalinkDate,
+		"unixhex":               p.pageToPermalinkDate,
+		"unixhashed":            p.pageToPermalinkDate,
 		"section":               p.pageToPermalinkSection,
 		"sections":              p.pageToPermalinkSections,
 		"title":                 p.pageToPermalinkTitle,
@@ -244,6 +250,21 @@ func (pee *permalinkExpandError) Error() string {
 
 var errPermalinkAttributeUnknown = errors.New("permalink attribute not recognised")
 
+func fetchPepper(p Page) string {
+	pepperP, err := p.Param("datepepper")
+	if err != nil {
+		return ""
+	}
+	if pepperP == nil {
+		return ""
+	}
+	pepper, err := cast.ToStringE(pepperP)
+	if err != nil {
+		return ""
+	}
+	return pepper
+}
+
 func (l PermalinkExpander) pageToPermalinkDate(p Page, dateField string) (string, error) {
 	// a Page contains a Node which provides a field Date, time.Time
 	switch dateField {
@@ -261,6 +282,14 @@ func (l PermalinkExpander) pageToPermalinkDate(p Page, dateField string) (string
 		return p.Date().Weekday().String(), nil
 	case "yearday":
 		return strconv.Itoa(p.Date().YearDay()), nil
+	case "unix":
+		return strconv.Itoa(int(p.Date().Unix())), nil
+	case "unixhex":
+		return fmt.Sprintf("%x", p.Date().Unix()), nil
+	case "unixhashed":
+		h := sha256.Sum256([]byte(fmt.Sprintf("%d\000%s", p.Date().Unix(), fetchPepper(p))))
+		// 32 bits will keep the same length like :unixhex until the year 2106
+		return fmt.Sprintf("%x", 0xffffffff & binary.BigEndian.Uint64(h[:])), nil
 	}
 
 	return p.Date().Format(dateField), nil
